@@ -16,6 +16,8 @@
 
 package csirac
 
+import "math/bits"
+
 const (
 	allBits = 0x000FFFFF
 	lo10    = 0x000003FF
@@ -34,6 +36,9 @@ func (w Word) Bit(n int) Word { return (w & (1 << n)) >> n }
 
 // Sign returns the sign bit (MSB) as 0 or 1.
 func (w Word) Sign() Word { return (w & signBit) >> 19 }
+
+// Ones returns the number of 1 bits in the word.
+func (w Word) Ones() Word { return Word(bits.OnesCount32(uint32(w))) }
 
 // Lo returns the lower 10 bits.
 func (w Word) Lo() Word { return w & lo10 }
