@@ -30,7 +30,7 @@ var (
 type CSIRAC struct {
 	// Registers (originally implemented using mercury delay-line memory).
 	A, B, C Word
-	H       Word
+	H       Word // H only has 10 bits
 	D       [16]Word
 
 	// Sequence register (a.k.a. program counter/instruction pointer).
@@ -107,10 +107,10 @@ func (c *CSIRAC) ReadSource(k Word) Word {
 		return c.D[k.Hi()] >> 1
 	case 20: // Z - Read zero.
 		return 0
-	case 21: // HL - Read the lower half of H
-		return c.H.Lo()
-	case 22: // HU - Read the upper half of H
-		return c.H.Hi()
+	case 21: // HL - Read the H register as a lower half
+		return c.H
+	case 22: // HU - Read the H register as an upper half
+		return c.H << 10
 	case 23: // S - Read sequence register as upper half
 		// TODO: check
 		return c.S << 10
@@ -185,9 +185,9 @@ func (c *CSIRAC) WriteDest(k, v Word) error {
 	case 20: // Z - Null
 		// no-op I guess.
 	case 21: // HL - H as lower half
-		// TODO: means what exactly?
+		c.H = v.Lo()
 	case 22: // HU - H as upper half
-		// TODO: means what exactly?
+		c.H = v.Hi()
 	case 23: // S - Write into sequence register (absolute jump)
 		c.S = v
 	case 24: // PS - Add into sequence register (relative jump)
@@ -195,9 +195,13 @@ func (c *CSIRAC) WriteDest(k, v Word) error {
 	case 25: // CS - Count into sequence register
 		// TODO: check this
 		c.S += v.Ones()
-	case 26: // PK - Add into instruction register (add upper half to next instruction)
-		// TODO: check
-		c.K += v.Hi()
+	case 26: // PK - Add into instruction register (add as upper half to next instruction)
+		// The "table of numbers" example is illuminating. For a program:
+		//     A PK
+		// 3 4 M B     // 3*32 + 4 = 100
+		// where A holds an index value into a table, PK then modifies the next
+		// instruction (3 4 M B, i.e. B = M[100]) to instead read from M[100+A].
+		c.K += (v << 10) & allBits
 	case 27: // n MA - Disk 1
 		c.MA[k.Hi()] = v
 	case 28: // n MB - Disk 2
