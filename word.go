@@ -16,7 +16,10 @@
 
 package csirac
 
-import "math/bits"
+import (
+	"math/bits"
+	"strconv"
+)
 
 const (
 	allBits = 0x000FFFFF
@@ -30,6 +33,14 @@ const (
 
 // Word represents the basic numeric type used by CSIRAC, a 20-bit value. This
 type Word uint32
+
+// String formats the word as a signed decimal integer.
+func (w Word) String() string {
+	if w&signBit != 0 {
+		return strconv.Itoa(-int(w - signBit))
+	}
+	return strconv.Itoa(int(w))
+}
 
 // Bit returns the nth bit from the right as 0 or 1.
 func (w Word) Bit(n int) Word { return (w & (1 << n)) >> n }
