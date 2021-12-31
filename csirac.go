@@ -65,7 +65,7 @@ func (c *CSIRAC) Step() {
 	// Three things could happen depending on the destination:
 	// 1) The destination is neither S nor K. Increment S and then fetch the
 	//    next instruction as normal here.
-	// 2) The destination is S. WriteDest updates S and K again.
+	// 2) The destination is S. WriteDest updates S and fetches K again.
 	// 3) The destination modifies K (PK). Since it doesn't modify S, the
 	//    next instruction is always the one fetched here.
 	c.S++
