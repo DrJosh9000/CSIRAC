@@ -65,7 +65,7 @@ func (c *CSIRAC) Step() {
 	// Three things could happen depending on the destination:
 	// 1) The destination is neither S nor K. Increment S and then fetch the
 	//    next instruction as normal here.
-	// 2) The destination is S. WriteDest updates S and fetches K again.
+	// 2) The destination is S (S, PS, CS). WriteDest updates S and refetches K.
 	// 3) The destination modifies K (PK). Since it doesn't modify S, the
 	//    next instruction is always the one fetched here.
 	c.S++
@@ -181,11 +181,10 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 	case 11: // B - Write into B register
 		c.B = src
 	case 12: // XB - B = A + v*C
-		// TODO: Fix this
+		// TODO: check this
 		// Page 10 of "The last of the first" says that for the multiplier unit,
-		// numbers are signed 19-bit fractions. Is that the source,
-		// the C register, or both?
-		c.B = (c.A + src*c.C) & allBits
+		// numbers are signed 19-bit fractions.
+		c.B = (c.A + FracMul(src, c.C)) & allBits
 	case 13: // L - If bit 20 is set, shift A and B left
 		if src.Sign() == 1 {
 			c.A = (c.A << 1) & allBits

@@ -26,18 +26,19 @@ const (
 	lo10    = 0x000003FF
 	hi10    = 0x000FFC00
 	signBit = 0x00080000
+	neg32   = 0xFFF00000
 
 	sourceMask = 0x000003E0
 	destMask   = 0x0000001F
 )
 
-// Word represents the basic numeric type used by CSIRAC, a 20-bit value. This
+// Word represents the basic numeric type used by CSIRAC, a 20-bit value.
 type Word uint32
 
 // String formats the word as a signed decimal integer.
 func (w Word) String() string {
 	if w&signBit != 0 {
-		return strconv.Itoa(-int(w - signBit))
+		return strconv.Itoa(int(int32(w | neg32)))
 	}
 	return strconv.Itoa(int(w))
 }
@@ -62,3 +63,13 @@ func (w Word) Source() Word { return (w & sourceMask) >> 5 }
 
 // Dest returns the lower 5 bits.
 func (w Word) Dest() Word { return w & destMask }
+
+// FracMul multiplies two words as signed 19-bit fractions.
+func FracMul(x, y Word) Word {
+	sign := (x & signBit) ^ (y & signBit)
+	x &^= signBit
+	y &^= signBit
+	// Fractional multiplication is shifted regular multiplication.
+	// 2*19 = 38, which is more bits than fit in uint32, but we have uint64.
+	return sign | Word((uint64(x)*uint64(y))>>19)
+}
