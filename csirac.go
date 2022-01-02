@@ -20,6 +20,7 @@ package csirac
 
 import (
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -66,13 +67,20 @@ type CSIRAC struct {
 	Printer, TapePunch, Loudspeaker func(Word)
 }
 
+func (c *CSIRAC) String() string {
+	return fmt.Sprintf("K:%v\tS:%v\nA:%v\tB:%v\tC:%v\tH:%v\n%s\n", c.K, c.S, c.A, c.B, c.C, c.H, c.K.InstructionString())
+}
+
 // Run runs the computer until it reaches a stop or an error. It runs one
 // instruction per period. If period <= 0, it runs without any artificial delay.
 // If the computer encounters a stop, Run will finish and return nil. (Run does
 // not return ErrStop).
-func (c *CSIRAC) Run(period time.Duration) error {
+func (c *CSIRAC) Run(period time.Duration, trace bool) error {
 	if period <= 0 {
 		for {
+			if trace {
+				fmt.Println(c)
+			}
 			if err := c.Step(); err != nil {
 				if errors.Is(err, ErrStop) {
 					return nil
@@ -84,6 +92,9 @@ func (c *CSIRAC) Run(period time.Duration) error {
 	ticker := time.NewTicker(period)
 	defer ticker.Stop()
 	for range ticker.C {
+		if trace {
+			fmt.Println(c)
+		}
 		if err := c.Step(); err != nil {
 			if errors.Is(err, ErrStop) {
 				return nil
@@ -107,8 +118,8 @@ func (c *CSIRAC) Step() error {
 	// 3) The destination modifies K (PK). (It doesn't modify M[S], just K).
 	//    Since it doesn't modify S, the next instruction is always the one
 	//    fetched here.
-	c.S++
-	c.K = c.M[c.S.Lo()]
+	c.S += P(11)
+	c.K = c.M[c.S.Hi()]
 	return c.WriteDest(inst, src)
 }
 

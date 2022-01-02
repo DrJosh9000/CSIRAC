@@ -42,7 +42,7 @@ func P(n int) Word { return 1 << (n - 1) }
 // train". For example, the word 0b00010_10010_00100_00000 would be formatted as
 // " 2,18, 4, 0".
 func (w Word) String() string {
-	return fmt.Sprintf("%2d,%2d,%2d,%2d", w>>15, (w>>10)&0x1f, (w>>5)&0x1f, w&0x1f)
+	return fmt.Sprintf("(%2d,%2d,%2d,%2d)", w>>15, (w>>10)&0x1f, (w>>5)&0x1f, w&0x1f)
 }
 
 // P returns the Pn bit of the word as a 0 or 1.
