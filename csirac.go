@@ -18,7 +18,10 @@
 // machine.
 package csirac
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var (
 	// ErrStop is returned by the machine if it has stopped. It's not an error
@@ -61,6 +64,34 @@ type CSIRAC struct {
 
 	// Outputs
 	Printer, TapePunch, Loudspeaker func(Word)
+}
+
+// Run runs the computer until it reaches a stop or an error. It runs one
+// instruction per period. If period <= 0, it runs without any artificial delay.
+// If the computer encounters a stop, Run will finish and return nil. (Run does
+// not return ErrStop).
+func (c *CSIRAC) Run(period time.Duration) error {
+	if period <= 0 {
+		for {
+			if err := c.Step(); err != nil {
+				if errors.Is(err, ErrStop) {
+					return nil
+				}
+				return err
+			}
+		}
+	}
+	ticker := time.NewTicker(period)
+	defer ticker.Stop()
+	for range ticker.C {
+		if err := c.Step(); err != nil {
+			if errors.Is(err, ErrStop) {
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
 }
 
 // Step executes the instruction in K and fetches the next instruction.

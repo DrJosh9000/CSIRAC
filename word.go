@@ -64,3 +64,81 @@ func (w Word) Source() Word { return (w & sourceMask) >> 5 }
 // Dest returns the lowest 5 bits (p1 - p5). When interpreting the word as an
 // instruction, this value specifies the destination.
 func (w Word) Dest() Word { return w & destMask }
+
+// InstructionString formats the word as an instruction (U. Melbourne symbols).
+func (w Word) InstructionString() string {
+	return fmt.Sprintf("%2d %2d %2s %2s", w>>15, (w>>10)&0x1f, sourceToMnemonic[w.Source()], destToMnemonic[w.Dest()])
+}
+
+// ParseInstruction parses an instruction string.
+func ParseInstruction(k string) (Word, error) {
+	var n0, n1 int
+	var s, d string
+	if _, err := fmt.Sscan(k, &n0, &n1, &s, &d); err != nil {
+		return 0, err
+	}
+	if n0 < 0 || n0 > 31 {
+		return 0, fmt.Errorf("first number %d out of valid range [0,31]", n0)
+	}
+	if n1 < 0 || n1 > 31 {
+		return 0, fmt.Errorf("second number %d out of valid range [0,31]", n1)
+	}
+	sv, ok := mnemonicToSource[s]
+	if !ok {
+		return 0, fmt.Errorf("invalid source %q", s)
+	}
+	dv, ok := mnemonicToDest[d]
+	if !ok {
+		return 0, fmt.Errorf("invalid destination %q", d)
+	}
+	return Word(n0<<15 + n1<<10 + sv<<5 + dv), nil
+}
+
+// MustParseInstruction parses an instruction, or panics.
+func MustParseInstruction(k string) Word {
+	w, err := ParseInstruction(k)
+	if err != nil {
+		panic(err)
+	}
+	return w
+}
+
+var (
+	sourceToMnemonic = [32]string{
+		0: "M", 1: "I", 2: "NA", 3: "NB", 4: "A",
+		5: "SA", 6: "HA", 7: "TA", 8: "LA", 9: "CA",
+		10: "ZA", 11: "B", 12: "R", 13: "RB", 14: "C",
+		15: "SC", 16: "RC", 17: "D", 18: "SD", 19: "RD",
+		20: "Z", 21: "HL", 22: "HU", 23: "S", 24: "PE",
+		25: "PL", 26: "K", 27: "MA", 28: "MB", 29: "MC",
+		30: "MD", 31: "PS",
+	}
+	mnemonicToSource = map[string]int{
+		"M": 0, "I": 1, "NA": 2, "NB": 3, "A": 4,
+		"SA": 5, "HA": 6, "TA": 7, "LA": 8, "CA": 9,
+		"ZA": 10, "B": 11, "R": 12, "RB": 13, "C": 14,
+		"SC": 15, "RC": 16, "D": 17, "SD": 18, "RD": 19,
+		"Z": 20, "HL": 21, "HU": 22, "S": 23, "PE": 24,
+		"PL": 25, "K": 26, "MA": 27, "MB": 28, "MC": 29,
+		"MD": 30, "PS": 31,
+	}
+
+	destToMnemonic = [32]string{
+		0: "M", 1: "Q", 2: "OT", 3: "OP", 4: "A",
+		5: "PA", 6: "SA", 7: "CA", 8: "DA", 9: "NA",
+		10: "P", 11: "B", 12: "XB", 13: "L", 14: "C",
+		15: "PC", 16: "SC", 17: "D", 18: "PD", 19: "SD",
+		20: "Z", 21: "HL", 22: "HU", 23: "S", 24: "PS",
+		25: "CS", 26: "PK", 27: "MA", 28: "MB", 29: "MC",
+		30: "MD", 31: "T",
+	}
+	mnemonicToDest = map[string]int{
+		"M": 0, "Q": 1, "OT": 2, "OP": 3, "A": 4,
+		"PA": 5, "SA": 6, "CA": 7, "DA": 8, "NA": 9,
+		"P": 10, "B": 11, "XB": 12, "L": 13, "C": 14,
+		"PC": 15, "SC": 16, "D": 17, "PD": 18, "SD": 19,
+		"Z": 20, "HL": 21, "HU": 22, "S": 23, "PS": 24,
+		"CS": 25, "PK": 26, "MA": 27, "MB": 28, "MC": 29,
+		"MD": 30, "T": 31,
+	}
+)
