@@ -198,9 +198,9 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 		// The interpretation of the result is then up to the programmer, rather
 		// than assuming the multiplicands are always fractions.
 		sign := (src & signBit) ^ (c.C & signBit)
-		prod := (src &^ signBit) * (c.C &^ signBit)
-		c.A = (c.A + sign + (prod >> 19)) & allBits
-		c.B = (prod << 1) & allBits
+		prod := uint64(src&^signBit) * uint64(c.C&^signBit)
+		c.A = (c.A + sign + Word(prod>>19)) & allBits
+		c.B = Word(prod<<1) & allBits
 	case 13: // L - If bit 20 is set, shift A and B left
 		if src.Sign() == 1 {
 			c.A = (c.A << 1) & allBits
