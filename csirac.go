@@ -88,14 +88,16 @@ func (c *CSIRAC) ReadSource(inst Word) Word {
 	case 4: // A - Read the A register
 		return c.A
 	case 5: // SA - Read the sign bit of the A register
-		return c.A.Sign()
+		// The programming manual implies this source does not translate from
+		// bit p20 to bit p1.
+		return c.A & signBit
 	case 6: // HA - "Half A" - Read the A register shifted right
 		// More specifically, an arithmetic (sign-preserving) shift, not a
 		// logical shift.
 		return (c.A >> 1) | (c.A & signBit)
 	case 7: // TA - Read the A register shifted left
 		return (c.A << 1) & allBits
-	case 8: // LA - Read the least significant bit of the A register
+	case 8: // LA - Read the Least significant bit of the A register
 		return c.A & 1
 	case 9: // CA - Read A then clear it
 		a := c.A
@@ -109,13 +111,17 @@ func (c *CSIRAC) ReadSource(inst Word) Word {
 	case 11: // B - Read the B register
 		return c.B
 	case 12: // R - Read the sign bit of the B register
+		// The programming manual specifically says this transmits a p1 bit
+		// equal to p20 of B.
 		return c.B.Sign()
 	case 13: // RB - Read the B register shifted right
 		return (c.B >> 1) | (c.B & signBit)
 	case 14: // C - Read the C register
 		return c.C
 	case 15: // SC - Read the sign bit of the C register
-		return c.C.Sign()
+		// The programming manual implies this source does not translate from
+		// bit p20 to bit p1.
+		return c.C & signBit
 	case 16: // RC - Read the C register shifted right
 		return (c.C >> 1) | (c.C & signBit)
 	case 17: // n D - Read from one of the D registers
@@ -124,7 +130,9 @@ func (c *CSIRAC) ReadSource(inst Word) Word {
 		// are the same as the D register address.
 		return c.D[inst.Hi()&0xF]
 	case 18: // n SD - Read the sign bit of one of the D registers
-		return c.D[inst.Hi()&0xF].Sign()
+		// The programming manual implies this source does not translate from
+		// bit p20 to bit p1.
+		return c.D[inst.Hi()&0xF] & signBit
 	case 19: // n RD - Read one of the D registers shifted right
 		d := c.D[inst.Hi()&0xF]
 		return (d >> 1) | (d & signBit)
@@ -137,9 +145,9 @@ func (c *CSIRAC) ReadSource(inst Word) Word {
 	case 23: // S - Read sequence register as upper half
 		// TODO: check
 		return c.S << 10
-	case 24: // PE - Read "upper" 1
-		return 1 << 10
-	case 25: // PL - Read 1
+	case 24: // PE - Read "upper" 1 (P-Eleven)
+		return 0b00000_00001_00000_00000
+	case 25: // PL - Read 1 (P-Least)
 		return 1
 	case 26: // n K - Read the upper half of the instruction (a literal)
 		// TODO: check
@@ -152,8 +160,8 @@ func (c *CSIRAC) ReadSource(inst Word) Word {
 		return c.MC[inst.Hi()]
 	case 30: // n MD - Read disk 4
 		return c.MD[inst.Hi()]
-	case 31: // PS - Read a number with 1 in the sign bit
-		return 1 << 19
+	case 31: // PS - Read a number with 1 in the sign bit (P-Sign)
+		return signBit
 	}
 	panic("k.Source returned a number outside [0, 31]")
 }
@@ -253,9 +261,17 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 	case 24: // PS - Add into sequence register (relative jump)
 		c.S += src
 		c.K = c.M[c.S]
-	case 25: // CS - Count into sequence register
-		// TODO: check this
-		c.S += src.Ones()
+	case 25: // CS - Conditionally increase sequence register
+		// Per the programming manual:
+		// If bits are recieved in either p1-p11 or p15-p20 (one of the ranges
+		// are non-zero), an extra unit is added to S. If bits in both ranges
+		// are received, a further unit is added.
+		if src&0b00000_00001_11111_11111 != 0 { // p1 - p11
+			c.S++
+		}
+		if src&0b11111_10000_00000_00000 != 0 { // p15 - p20
+			c.S++
+		}
 		c.K = c.M[c.S]
 	case 26: // PK - Add into instruction register (add as upper half to next instruction)
 		// The "table of numbers" example is illuminating. For a program:
