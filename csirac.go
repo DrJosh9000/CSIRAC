@@ -81,8 +81,8 @@ func (c *CSIRAC) Step() error {
 	return c.WriteDest(inst, src)
 }
 
-// ReadSource reads the source field from the instruction k, and uses that to
-// read a word from a variety of sources.
+// ReadSource reads the source field from K, and uses that to read a word from a
+// variety of sources.
 func (c *CSIRAC) ReadSource() Word {
 	switch c.K.Source() {
 	case 0: // n M - Read from main store
@@ -215,8 +215,8 @@ func (c *CSIRAC) ReadSource() Word {
 	panic("k.Source returned a number outside [0, 31]")
 }
 
-// WriteDest reads the dest field from the instruction k, and uses that to
-// write the word v to a variety of sources.
+// WriteDest reads the dest field from inst, and uses that to write src to a
+// variety of destinations.
 func (c *CSIRAC) WriteDest(inst, src Word) error {
 	switch inst.Dest() {
 	case 0: // n M - Write to main store
