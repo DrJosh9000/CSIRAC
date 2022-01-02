@@ -17,59 +17,50 @@
 package csirac
 
 import (
-	"math/bits"
-	"strconv"
+	"fmt"
 )
 
 const (
-	allBits = 0x000FFFFF
-	lo10    = 0x000003FF
-	hi10    = 0x000FFC00
-	signBit = 0x00080000
-	neg32   = 0xFFF00000
+	allBits = 0b11111_11111_11111_11111
+	lo10    = 0b00000_00000_11111_11111
+	hi10    = 0b11111_11111_00000_00000
+	signBit = 0b10000_00000_00000_00000
 
 	sourceMask = 0x000003E0
 	destMask   = 0x0000001F
 )
 
 // Word represents the basic numeric type used by CSIRAC, a 20-bit value.
+// The bits in a CSIRAC word, from least to most significant, are called p1
+// through p20.
 type Word uint32
 
-// String formats the word as a signed decimal integer.
+// P returns a Word with the Pn bit equal to 1, and all other bits equal to 0.
+func P(n int) Word { return 1 << (n - 1) }
+
+// String formats the word as an 11-character comma-separated decimal "number
+// train". For example, the word 0b00010_10010_00100_00000 would be formatted as
+// " 2,18, 4, 0".
 func (w Word) String() string {
-	if w&signBit != 0 {
-		return strconv.Itoa(int(int32(w | neg32)))
-	}
-	return strconv.Itoa(int(w))
+	return fmt.Sprintf("%2d,%2d,%2d,%2d", w>>15, (w>>10)&0x1f, (w>>5)&0x1f, w&0x1f)
 }
 
-// Bit returns the nth bit from the right as 0 or 1.
-func (w Word) Bit(n int) Word { return (w & (1 << n)) >> n }
+// P returns the Pn bit of the word as a 0 or 1.
+func (w Word) P(n int) Word {
+	n--
+	return (w & (1 << n)) >> n
+}
 
-// Sign returns the sign bit (MSB) as 0 or 1.
-func (w Word) Sign() Word { return (w & signBit) >> 19 }
-
-// Ones returns the number of 1 bits in the word.
-func (w Word) Ones() Word { return Word(bits.OnesCount32(uint32(w))) }
-
-// Lo returns the lower 10 bits.
+// Lo returns the value in the lower 10 bits (p1 - p10).
 func (w Word) Lo() Word { return w & lo10 }
 
-// Hi returns the upper 10 bits.
+// Hi returns the value in the upper 10 bits (p11 - p20).
 func (w Word) Hi() Word { return (w & hi10) >> 10 }
 
-// Source returns the upper 5 bits of the lower 10 bits.
+// Source returns the upper 5 bits of the lower 10 bits (p6 - p10). When
+// interpreting the word as an instruction, this value specifies the source.
 func (w Word) Source() Word { return (w & sourceMask) >> 5 }
 
-// Dest returns the lower 5 bits.
+// Dest returns the lowest 5 bits (p1 - p5). When interpreting the word as an
+// instruction, this value specifies the destination.
 func (w Word) Dest() Word { return w & destMask }
-
-// FracMul multiplies two words as signed 19-bit fractions.
-func FracMul(x, y Word) Word {
-	sign := (x & signBit) ^ (y & signBit)
-	x &^= signBit
-	y &^= signBit
-	// Fractional multiplication is shifted regular multiplication.
-	// 2*19 = 38, which is more bits than fit in uint32, but we have uint64.
-	return sign | Word((uint64(x)*uint64(y))>>19)
-}

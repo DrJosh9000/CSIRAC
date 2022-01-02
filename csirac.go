@@ -45,7 +45,8 @@ type CSIRAC struct {
 	I, N1, N2 Word
 
 	// Main store, also originally implemented with mercury delay-line memory.
-	// While the total capacity was 1024 words, usually only 768 were in use.
+	// While the total capacity was 1024 words, supposedly only 768 were in use
+	// much of the time.
 	M [1024]Word
 
 	// Four magnetic storage disks of 1024 words each. Only one was implemented
@@ -58,19 +59,22 @@ type CSIRAC struct {
 	Printer, TapePunch, Loudspeaker func(Word)
 }
 
-// Step executes one instruction.
-func (c *CSIRAC) Step() {
+// Step executes the instruction in K and fetches the next instruction.
+func (c *CSIRAC) Step() error {
 	inst := c.K
 	src := c.ReadSource(inst)
 	// Three things could happen depending on the destination:
 	// 1) The destination is neither S nor K. Increment S and then fetch the
 	//    next instruction as normal here.
 	// 2) The destination is S (S, PS, CS). WriteDest updates S and refetches K.
-	// 3) The destination modifies K (PK). Since it doesn't modify S, the
-	//    next instruction is always the one fetched here.
+	//    (The programmer is warned to take into account the unconditional
+	//    increment of S when sending values to PS or CS).
+	// 3) The destination modifies K (PK). (It doesn't modify M[S], just K).
+	//    Since it doesn't modify S, the next instruction is always the one
+	//    fetched here.
 	c.S++
 	c.K = c.M[c.S]
-	c.WriteDest(inst, src)
+	return c.WriteDest(inst, src)
 }
 
 // ReadSource reads the source field from the instruction k, and uses that to
@@ -88,7 +92,8 @@ func (c *CSIRAC) ReadSource(inst Word) Word {
 	case 4: // A - Read the A register
 		return c.A
 	case 5: // SA - Read the sign bit of the A register
-		// The programming manual implies this source does not translate from
+		// While the "CSIRAC Hardware" article says the sign is returned as p1,
+		// the programming manual implies this source does *not* translate from
 		// bit p20 to bit p1.
 		return c.A & signBit
 	case 6: // HA - "Half A" - Read the A register shifted right
@@ -111,15 +116,16 @@ func (c *CSIRAC) ReadSource(inst Word) Word {
 	case 11: // B - Read the B register
 		return c.B
 	case 12: // R - Read the sign bit of the B register
-		// The programming manual specifically says this transmits a p1 bit
-		// equal to p20 of B.
-		return c.B.Sign()
+		// Both "CSIRAC Hardware" and the programming manual agree that this
+		// transmits a p1 bit equal to p20 of B.
+		return c.B.P(20)
 	case 13: // RB - Read the B register shifted right
 		return (c.B >> 1) | (c.B & signBit)
 	case 14: // C - Read the C register
 		return c.C
 	case 15: // SC - Read the sign bit of the C register
-		// The programming manual implies this source does not translate from
+		// While the "CSIRAC Hardware" article says the sign is returned as p1,
+		// the programming manual implies this source does *not* translate from
 		// bit p20 to bit p1.
 		return c.C & signBit
 	case 16: // RC - Read the C register shifted right
@@ -201,7 +207,7 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 	case 11: // B - Write into B register
 		c.B = src
 	case 12: // XB - Multiplication.
-		// "The last of the first" doesn't describe this well at all. The
+		// "CSIRAC Hardware" doesn't describe this well at all. The
 		// destinations table simply says
 		// "B - multiply: B = A + source X register C".
 		// It also says that for the multiplier unit, numbers are signed 19-bit
@@ -212,7 +218,9 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 		// *added* into A, and the least-significant 19 bits replacing
 		// bits 20 through 2 of B (and bit 1 cleared).
 		// The interpretation of the result is then up to the programmer, rather
-		// than assuming the multiplicands are always fractions.
+		// than assuming the multiplicands are always fractions. There are
+		// three standard interpretations depending on the multiplicands (two
+		// integers, two fractions, or integer x fraction).
 		sign := (src & signBit) ^ (c.C & signBit)
 		prod := uint64(src&^signBit) * uint64(c.C&^signBit)
 		c.A = (c.A + sign + Word(prod>>19)) & allBits
@@ -223,10 +231,10 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 		// and B as a combined 40-bit register, where bits leave the left of B
 		// to become the right of A, and leave the left of A to become the right
 		// of B.
-		if src.Sign() != 1 {
+		if src.P(20) != 1 {
 			break
 		}
-		// Multiple shifts can be called depending on the source. From the
+		// Up to 7 shifts can be called depending on the source. From the
 		// programming manual:
 		// 16  0 K L - one left shift
 		// 16  2 K L - two left shifts
@@ -273,13 +281,14 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 			c.S++
 		}
 		c.K = c.M[c.S]
-	case 26: // PK - Add into instruction register (add as upper half to next instruction)
-		// The "table of numbers" example is illuminating. For a program:
-		//     A PK
-		// 3 4 M B     // 3*32 + 4 = 100
-		// where A holds an index value into a table, PK then modifies the next
-		// instruction (3 4 M B, i.e. B = M[100]) to instead read from M[100+A].
-		c.K = (c.K + src<<10) & allBits
+	case 26: // PK - Add into instruction register
+		// "CSIRAC Hardware" doesn't fully explain what happens here - further-
+		// more, the "upper half" wording seems to be a mistake.
+		// The programming manual says a number transmitted to PK is held and
+		// the next command is added to it. (I do it the other way around.)
+		// It spells out that the source and destination of the next instruction
+		// can also be changed with PK, not just the address.
+		c.K = (c.K + src) & allBits
 	case 27: // n MA - Disk 1
 		c.MA[inst.Hi()] = src
 	case 28: // n MB - Disk 2
