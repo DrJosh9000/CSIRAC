@@ -39,7 +39,7 @@ type CSIRAC struct {
 	// The upper half of S is the pointer into M.
 	S Word
 
-	// Intepreter register (the current instruction).
+	// Intepreter register (the next instruction to execute).
 	K Word
 
 	// Input register (read from the input tape).
@@ -66,7 +66,7 @@ type CSIRAC struct {
 // Step executes the instruction in K and fetches the next instruction.
 func (c *CSIRAC) Step() error {
 	inst := c.K
-	src := c.ReadSource(inst)
+	src := c.ReadSource()
 	// Three things could happen depending on the destination:
 	// 1) The destination is neither S nor K. Increment S and then fetch the
 	//    next instruction as normal here.
