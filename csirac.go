@@ -89,8 +89,10 @@ func (c *CSIRAC) ReadSource(inst Word) Word {
 		return c.A
 	case 5: // SA - Read the sign bit of the A register
 		return c.A.Sign()
-	case 6: // HA - Read the A register shifted right
-		return c.A >> 1
+	case 6: // HA - "Half A" - Read the A register shifted right
+		// More specifically, an arithmetic (sign-preserving) shift, not a
+		// logical shift.
+		return (c.A >> 1) | (c.A & signBit)
 	case 7: // TA - Read the A register shifted left
 		return (c.A << 1) & allBits
 	case 8: // LA - Read the least significant bit of the A register
@@ -109,19 +111,23 @@ func (c *CSIRAC) ReadSource(inst Word) Word {
 	case 12: // R - Read the sign bit of the B register
 		return c.B.Sign()
 	case 13: // RB - Read the B register shifted right
-		return c.B >> 1
+		return (c.B >> 1) | (c.B & signBit)
 	case 14: // C - Read the C register
 		return c.C
 	case 15: // SC - Read the sign bit of the C register
 		return c.C.Sign()
 	case 16: // RC - Read the C register shifted right
-		return c.C >> 1
+		return (c.C >> 1) | (c.C & signBit)
 	case 17: // n D - Read from one of the D registers
-		return c.D[inst.Hi()]
+		// The programming manual says simultaneous operation on a store cell
+		// and a D register if the lower four binary digits of the cell address
+		// are the same as the D register address.
+		return c.D[inst.Hi()&0xF]
 	case 18: // n SD - Read the sign bit of one of the D registers
-		return c.D[inst.Hi()].Sign()
+		return c.D[inst.Hi()&0xF].Sign()
 	case 19: // n RD - Read one of the D registers shifted right
-		return c.D[inst.Hi()] >> 1
+		d := c.D[inst.Hi()&0xF]
+		return (d >> 1) | (d & signBit)
 	case 20: // Z - Read zero.
 		return 0
 	case 21: // HL - Read the H register as a lower half
@@ -201,11 +207,26 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 		prod := uint64(src&^signBit) * uint64(c.C&^signBit)
 		c.A = (c.A + sign + Word(prod>>19)) & allBits
 		c.B = Word(prod<<1) & allBits
-	case 13: // L - If bit 20 is set, shift A and B left
-		if src.Sign() == 1 {
-			c.A = (c.A << 1) & allBits
-			c.B = (c.B << 1) & allBits
+	case 13: // L - "A and B shifted 1 left IF source bit 20 is set"
+		// This is more accurately called "40-bit left rotate".
+		// Again, the programming manual is clearer. This destination treats A
+		// and B as a combined 40-bit register, where bits leave the left of B
+		// to become the right of A, and leave the left of A to become the right
+		// of B.
+		if src.Sign() != 1 {
+			break
 		}
+		// Multiple shifts can be called depending on the source. From the
+		// programming manual:
+		// 16  0 K L - one left shift
+		// 16  2 K L - two left shifts
+		// ...
+		// 16 12 K L - seven left shifts
+		n := (src.Hi()>>1)&0xf + 1
+		a := c.A << n
+		b := c.B << n
+		c.A = (a + (b >> 20)) & allBits
+		c.B = (b + (a >> 20)) & allBits
 	case 14: // C - Write into C register
 		c.C = src
 	case 15: // PC - Add into C register
