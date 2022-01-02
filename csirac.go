@@ -161,9 +161,13 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 	case 1: // Q - Set binary or decimal input
 		// "in Melb no-op"
 	case 2: // OT - Write to console printer
-		c.Printer(src)
+		if c.Printer != nil {
+			c.Printer(src)
+		}
 	case 3: // OP - Write to tape punch
-		c.TapePunch(src)
+		if c.TapePunch != nil {
+			c.TapePunch(src)
+		}
 	case 4: // A - Write to A register
 		c.A = src
 	case 5: // PA - Add into A register
@@ -180,11 +184,23 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 		c.Loudspeaker(src)
 	case 11: // B - Write into B register
 		c.B = src
-	case 12: // XB - B = A + v*C
-		// TODO: check this
-		// Page 10 of "The last of the first" says that for the multiplier unit,
-		// numbers are signed 19-bit fractions.
-		c.B = (c.A + FracMul(src, c.C)) & allBits
+	case 12: // XB - Multiplication.
+		// "The last of the first" doesn't describe this well at all. The
+		// destinations table simply says
+		// "B - multiply: B = A + source X register C".
+		// It also says that for the multiplier unit, numbers are signed 19-bit
+		// fractions. Fortunately the programming manual (CMANUAL.pdf) is
+		// clearer and more accurate.
+		// After determining the output sign bit, the remaining 19-bit integers
+		// (source and C) are multiplied, with the most-significant 19 bits
+		// *added* into A, and the least-significant 19 bits replacing
+		// bits 20 through 2 of B (and bit 1 cleared).
+		// The interpretation of the result is then up to the programmer, rather
+		// than assuming the multiplicands are always fractions.
+		sign := (src & signBit) ^ (c.C & signBit)
+		prod := (src &^ signBit) * (c.C &^ signBit)
+		c.A = (c.A + sign + (prod >> 19)) & allBits
+		c.B = (prod << 1) & allBits
 	case 13: // L - If bit 20 is set, shift A and B left
 		if src.Sign() == 1 {
 			c.A = (c.A << 1) & allBits
