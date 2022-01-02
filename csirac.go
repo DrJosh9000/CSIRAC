@@ -187,7 +187,7 @@ func (c *CSIRAC) ReadSource() Word {
 		return c.S
 	case 24: // PE - Read "upper" 1 (P-Eleven)
 		// "Transmit 1 in the P11 position."
-		return 0b00000_00001_00000_00000
+		return P(11)
 	case 25: // PL - Read 1 (P-Least)
 		// "Transmit 1 in the P1 position."
 		return 1
