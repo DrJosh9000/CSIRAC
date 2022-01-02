@@ -180,12 +180,14 @@ func (c *CSIRAC) WriteDest(inst, src Word) error {
 		c.A = (c.A + src) & allBits
 	case 6: // SA - Subtract into A register
 		c.A = (c.A - src) & allBits
-	case 7: // CA - AND with A register
+	case 7: // CA - AND with A register (C for Conjunction)
 		c.A &= src
-	case 8: // DA - XOR with A register
+	case 8: // DA - OR with A register (D for Disjunction)
+		// Programming manual says this is OR, not XOR.
+		c.A |= src
+	case 9: // NA - XOR with A register (N for negation)
+		// Programming manual says this is XOR, not NAND.
 		c.A ^= src
-	case 9: // NA - NAND with A register
-		c.A = ^(c.A & src) & allBits
 	case 10: // P - Loudspeaker
 		c.Loudspeaker(src)
 	case 11: // B - Write into B register
