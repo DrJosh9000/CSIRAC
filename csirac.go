@@ -200,7 +200,7 @@ func (c *CSIRAC) ReadSource() Word {
 		// bit p20 to bit p1.
 		// "Transmit the sign bit of C, i.e. the most significant digit of C."
 		return c.C & signBit
-	case 16: // RC - Read the C register shifted right
+	case 16: // RC - Read the C register shifted right (logical shift)
 		// "Transmit the contents of C shifted one place to the right, with zero in
 		// the sign digit position."
 		return c.C >> 1
@@ -215,11 +215,10 @@ func (c *CSIRAC) ReadSource() Word {
 		// bit p20 to bit p1.
 		// "Transmit the sign bit of the nth D-register."
 		return c.D[c.K.Hi()&0xF] & signBit
-	case 19: // n RD - Read one of the D registers shifted right
+	case 19: // n RD - Read one of the D registers shifted right (logical shift)
 		// "Transmit the contents of the nth D-register shifted one place to the
 		// right, with zero in the sign digit position."
-		d := c.D[c.K.Hi()&0xF]
-		return d >> 1
+		return c.D[c.K.Hi()&0xF] >> 1
 	case 20: // Z - Read zero.
 		// "Transmit zero (20 digits)."
 		return 0
