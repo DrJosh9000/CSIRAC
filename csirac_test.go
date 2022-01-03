@@ -23,13 +23,14 @@ func TestCSIRACCountDownLoop(t *testing.T) {
 	c := &CSIRAC{
 		A: 13,
 		B: 47,
-		M: [1024]Word{
+		M: []Word{
 			0: MustParseInstruction(" 0  8 K  C"),  // C = 8
 			1: MustParseInstruction(" 0  0 B  PA"), // A += B
 			2: MustParseInstruction(" 0  0 PE SC"), // C--
 			3: MustParseInstruction(" 0  0 SC CS"), // if C < 0 { goto 5 }
 			4: MustParseInstruction(" 0  1 K  S"),  // goto 1
 			5: MustParseInstruction("31 31 K  T"),  // stop
+			6: 0,
 		},
 	}
 	c.K = c.M[0]

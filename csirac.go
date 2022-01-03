@@ -55,13 +55,17 @@ type CSIRAC struct {
 	// Main store, also originally implemented with mercury delay-line memory.
 	// While the total capacity was 1024 words, supposedly only 768 were in use
 	// much of the time.
-	M [1024]Word
+	// This is a []Word instead of [1024]Word for situations such as tests where
+	// only a small portion of memory is needed.
+	M []Word
 
 	// Four magnetic storage disks of 1024 words each. Only one was implemented
 	// initially. When CSIRAC moved to Melbourne a second disk was implemented
 	// on the underside of the first. That said, the instruction set supports
 	// four disks.
-	MA, MB, MC, MD [1024]Word
+	// These are []Word instead of [1024]Word for situations such as tests where
+	// no auxiliary memory is needed, or only a small amount.
+	MA, MB, MC, MD []Word
 
 	// Outputs
 	Printer, TapePunch, Loudspeaker func(Word)
@@ -133,6 +137,7 @@ func (c *CSIRAC) ReadSource() Word {
 	case 1: // I - Read input register
 		// "Transmit the content of the input register (20 digits) and shift the
 		// input tape"
+		// TODO: implement input tape
 		return c.I
 	case 2: // NA - Read switch register 1
 		// "Transmit the contents of hand set register No. 1 (20 digits)"
