@@ -34,11 +34,15 @@ const (
 
 // Word represents the basic numeric type used by CSIRAC, a 20-bit value.
 // The bits in a CSIRAC word, from least to most significant, are called p1
-// through p20.
+// through p20. The underlying type is uint32 since that is overall easier to
+// work with than a signed integer type.
 type Word uint32
 
 // P returns a Word with the Pn bit equal to 1, and all other bits equal to 0.
 func P(n int) Word { return 1 << (n - 1) }
+
+// IntWord returns x as a Word (truncated to 20 bits).
+func IntWord(x int) Word { return Word(x) & allBits }
 
 // String formats the word as an 11-character comma-separated decimal "number
 // train". For example, the word 0b00010_10010_00100_00000 would be formatted as
@@ -105,23 +109,25 @@ func MustParseInstruction(k string) Word {
 	return w
 }
 
-// ParseProgram parses a (mnemonic-form) program.
+// ParseProgram parses a (mnemonic-form) program. Programs can include comments
+// (starting with semicolon).
 func ParseProgram(program io.Reader) ([]Word, error) {
 	// TODO: implement offsets
 	var m []Word
-	lc := 1
+	lc := 0
 	sc := bufio.NewScanner(program)
 	for sc.Scan() {
-		line := sc.Text()
-		if line == "" {
+		lc++
+		cspl := strings.SplitN(sc.Text(), ";", 2) // trim off comment
+		code := strings.TrimSpace(cspl[0])
+		if code == "" {
 			continue
 		}
-		ins, err := ParseInstruction(sc.Text())
+		ins, err := ParseInstruction(code)
 		if err != nil {
 			return nil, fmt.Errorf("line %d: %w", lc, err)
 		}
 		m = append(m, ins)
-		lc++
 	}
 	if err := sc.Err(); err != nil {
 		return nil, err
