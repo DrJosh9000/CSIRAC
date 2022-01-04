@@ -21,13 +21,12 @@ import (
 )
 
 const (
-	allBits = 0b11111_11111_11111_11111
-	lo10    = 0b00000_00000_11111_11111
-	hi10    = 0b11111_11111_00000_00000
-	signBit = 0b10000_00000_00000_00000
-
-	sourceMask = 0x000003E0
-	destMask   = 0x0000001F
+	allBits    = 0b11111_11111_11111_11111
+	lo10       = 0b00000_00000_11111_11111
+	hi10       = 0b11111_11111_00000_00000
+	signBit    = 0b10000_00000_00000_00000
+	sourceMask = 0b00000_00000_11111_00000
+	destMask   = 0b00000_00000_00000_11111
 )
 
 // Word represents the basic numeric type used by CSIRAC, a 20-bit value.
