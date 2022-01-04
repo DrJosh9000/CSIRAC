@@ -17,7 +17,10 @@
 package csirac
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"strings"
 )
 
 const (
@@ -100,6 +103,39 @@ func MustParseInstruction(k string) Word {
 		panic(err)
 	}
 	return w
+}
+
+// ParseProgram parses a (mnemonic-form) program.
+func ParseProgram(program io.Reader) ([]Word, error) {
+	// TODO: implement offsets
+	var m []Word
+	lc := 1
+	sc := bufio.NewScanner(program)
+	for sc.Scan() {
+		line := sc.Text()
+		if line == "" {
+			continue
+		}
+		ins, err := ParseInstruction(sc.Text())
+		if err != nil {
+			return nil, fmt.Errorf("line %d: %w", lc, err)
+		}
+		m = append(m, ins)
+		lc++
+	}
+	if err := sc.Err(); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// MustParseProgram parses a (mnemonic form) program or panics.
+func MustParseProgram(program string) []Word {
+	m, err := ParseProgram(strings.NewReader(program))
+	if err != nil {
+		panic(err)
+	}
+	return m
 }
 
 var (

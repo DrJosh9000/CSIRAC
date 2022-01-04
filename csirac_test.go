@@ -96,3 +96,49 @@ func TestCSIRACStrobeLoop(t *testing.T) {
 		t.Errorf("after Run: c.A = %d, want %d", got, want)
 	}
 }
+
+func TestCSIRACLoopPKSum(t *testing.T) {
+	// A sample program from the programming guide that sums some numbers in
+	// memory using a loop that varies the  command using PK.
+	program := MustParseProgram(`
+ 0  0 A  SA
+ 0  8 K  C
+ 0  0 C  PK
+ 2  1 M  PA
+ 0  0 PE SC
+ 0  0 SC CS
+31 27 K  PS
+ 0  0 PL T
+`)
+	// A = 0
+	// C = 8
+	// next command += C
+	// A += M[(2*32+1)+C]
+	// C--
+	// if C < 0 { skip next }
+	// goto (line - 4)
+	// stop
+	c := &CSIRAC{
+		M: []Word{
+			// data
+			2*32 + 1: 14,
+			2*32 + 2: 2,
+			2*32 + 3: 3,
+			2*32 + 4: 10,
+			2*32 + 5: 8,
+			2*32 + 6: 3,
+			2*32 + 7: 2,
+			2*32 + 8: 9,
+			2*32 + 9: 6,
+		},
+	}
+	c.K = program[0]
+	copy(c.M, program)
+
+	if err := c.Run(0, false); err != nil {
+		t.Errorf("c.Run(0) = %v, want nil", err)
+	}
+	if got, want := c.A, Word(57); got != want {
+		t.Errorf("after Run: c.A = %d, want %d", got, want)
+	}
+}
