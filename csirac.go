@@ -51,6 +51,8 @@ type CSIRAC struct {
 
 	// Console switches (physical switches on the control console).
 	NA, NB Word
+	IS     Word // OR-ed with I - normally all off
+	T      Word // 10 bits - specifies an address to stop at ("trigger stop")
 
 	// Main store, also originally implemented with mercury delay-line memory.
 	// While the total capacity was 1024 words, supposedly only 768 were in use
@@ -138,7 +140,7 @@ func (c *CSIRAC) ReadSource() Word {
 		// "Transmit the content of the input register (20 digits) and shift the
 		// input tape"
 		// TODO: implement input tape
-		return c.I
+		return c.I | c.IS
 	case 2: // NA - Read switch register 1
 		// "Transmit the contents of hand set register No. 1 (20 digits)"
 		return c.NA
